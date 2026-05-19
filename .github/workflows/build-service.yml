@@ -1,0 +1,98 @@
+name: Build Service
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: '服务名称'
+        required: true
+        type: choice
+        options:
+          - oscholar-gateway
+          - oscholar-user
+          - oscholar-paper
+          - oscholar-social
+          - oscholar-web
+      deploy_env:
+        description: '部署环境'
+        required: true
+        type: choice
+        options:
+          - dev
+          - uat
+          - prod
+
+env:
+  REGISTRY: crpi-54xd1yj3irk9pgls.cn-shanghai.personal.cr.aliyuncs.com
+
+jobs:
+  build_and_push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout manifest repo
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.deploy_env }}
+          token: ${{ secrets.PAT_TOKEN }}
+
+      - name: Checkout app repo
+        uses: actions/checkout@v4
+        with:
+          repository: canxiusi/${{ inputs.service }}
+          ref: ${{ inputs.deploy_env }}
+          token: ${{ secrets.PAT_TOKEN }}
+          path: app-code
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Aliyun ACR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.REGISTRY_USER }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Build and push image
+        env:
+          IMAGE_NAME: ${{ env.REGISTRY }}/oscholar/${{ inputs.service }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          DOCKER_BUILDKIT=1 docker build \
+            --build-arg GITHUB_TOKEN=$GITHUB_TOKEN \
+            --build-arg GITHUB_ACTOR=${{ github.actor }} \
+            -f ${{ inputs.service }}/overlays/${{ inputs.deploy_env }}/Dockerfile \
+            -t $IMAGE_NAME:${{ github.run_number }} \
+            -t $IMAGE_NAME:latest \
+            app-code/
+          docker push $IMAGE_NAME:${{ github.run_number }}
+          docker push $IMAGE_NAME:latest
+
+  update_manifest:
+    runs-on: ubuntu-latest
+    needs: build_and_push
+    steps:
+      - name: Checkout manifest repo
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.deploy_env }}
+          token: ${{ secrets.PAT_TOKEN }}
+
+      - name: Setup Kustomize
+        uses: imranismail/setup-kustomize@v2
+
+      - name: Update image tag
+        env:
+          IMAGE_NAME: ${{ env.REGISTRY }}/oscholar/${{ inputs.service }}
+        run: |
+          cd ${{ inputs.service }}/overlays/${{ inputs.deploy_env }}
+          kustomize edit set image ${IMAGE_NAME}:placeholder=${IMAGE_NAME}:${{ github.run_number }}
+          cat kustomization.yaml
+
+      - name: Commit and push
+        run: |
+          git config user.email "github-actions@github.com"
+          git config user.name "GitHub Actions"
+          git add .
+          git commit -m "CI: Update ${{ inputs.service }} ${{ inputs.deploy_env }} to ${{ github.run_number }}"
+          git push

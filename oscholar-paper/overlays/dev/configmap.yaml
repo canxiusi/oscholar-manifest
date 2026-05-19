@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oscholar-paper-config
+data:
+  ACTIVE: "dev"
+  SOCIAL_SERVICE_K8S_FQDN: "http://dev-oscholar-social-service"

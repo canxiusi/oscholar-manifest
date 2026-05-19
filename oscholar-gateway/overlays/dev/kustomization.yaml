@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: java-dev
+
+namePrefix: dev-
+
+images:
+- name: crpi-54xd1yj3irk9pgls.cn-shanghai.personal.cr.aliyuncs.com/oscholar/oscholar-gateway:placeholder
+  newName: crpi-54xd1yj3irk9pgls.cn-shanghai.personal.cr.aliyuncs.com/oscholar/oscholar-gateway
+  newTag: "91"
+
+resources:
+- ../../base
+- configmap.yaml
+- secret.yaml

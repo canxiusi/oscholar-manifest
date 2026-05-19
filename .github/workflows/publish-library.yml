@@ -1,0 +1,181 @@
+name: Publish Library
+
+on:
+  workflow_dispatch:
+    inputs:
+      library:
+        description: '要发布的库'
+        required: true
+        type: choice
+        options:
+          - oscholar-common
+          - oscholar-paper-api
+          - oscholar-social-api
+          - oscholar-user-api
+          - publish-all
+      branch:
+        description: '分支'
+        required: true
+        default: 'main'
+        type: string
+
+jobs:
+  publish_single:
+    if: inputs.library != 'publish-all'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Determine repo and module
+        id: info
+        run: |
+          case "${{ inputs.library }}" in
+            oscholar-common)
+              echo "repo=oscholar-common" >> $GITHUB_OUTPUT
+              echo "module=" >> $GITHUB_OUTPUT
+              ;;
+            oscholar-paper-api)
+              echo "repo=oscholar-paper" >> $GITHUB_OUTPUT
+              echo "module=-pl oscholar-paper-api -am" >> $GITHUB_OUTPUT
+              ;;
+            oscholar-social-api)
+              echo "repo=oscholar-social" >> $GITHUB_OUTPUT
+              echo "module=-pl oscholar-social-api -am" >> $GITHUB_OUTPUT
+              ;;
+            oscholar-user-api)
+              echo "repo=oscholar-user" >> $GITHUB_OUTPUT
+              echo "module=-pl oscholar-user-api -am" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+      - name: Checkout app repo
+        uses: actions/checkout@v4
+        with:
+          repository: canxiusi/${{ steps.info.outputs.repo }}
+          ref: ${{ inputs.branch }}
+          token: ${{ secrets.PAT_TOKEN }}
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Publish to GitHub Packages
+        run: |
+          cat > settings.xml <<EOF
+          <settings>
+            <servers>
+              <server>
+                <id>github</id>
+                <username>${{ github.actor }}</username>
+                <password>${{ secrets.GITHUB_TOKEN }}</password>
+              </server>
+            </servers>
+          </settings>
+          EOF
+          mvn deploy -s settings.xml ${{ steps.info.outputs.module }} -DskipTests -B
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish_all:
+    if: inputs.library == 'publish-all'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Create Maven settings
+        run: |
+          cat > settings.xml <<EOF
+          <settings>
+            <servers>
+              <server>
+                <id>github</id>
+                <username>${{ github.actor }}</username>
+                <password>${{ secrets.GITHUB_TOKEN }}</password>
+              </server>
+            </servers>
+            <profiles>
+              <profile>
+                <id>github</id>
+                <repositories>
+                  <repository>
+                    <id>github</id>
+                    <url>https://maven.pkg.github.com/canxiusi/oscholar-common</url>
+                  </repository>
+                </repositories>
+              </profile>
+            </profiles>
+            <activeProfiles>
+              <activeProfile>github</activeProfile>
+            </activeProfiles>
+          </settings>
+          EOF
+
+      - name: Publish oscholar-common
+        uses: actions/checkout@v4
+        with:
+          repository: canxiusi/oscholar-common
+          ref: ${{ inputs.branch }}
+          token: ${{ secrets.PAT_TOKEN }}
+          path: common-code
+
+      - name: Deploy oscholar-common
+        run: |
+          cd common-code
+          mvn deploy -s ../settings.xml -DskipTests -B
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish oscholar-paper-api
+        uses: actions/checkout@v4
+        with:
+          repository: canxiusi/oscholar-paper
+          ref: ${{ inputs.branch }}
+          token: ${{ secrets.PAT_TOKEN }}
+          path: paper-code
+
+      - name: Deploy oscholar-paper-api
+        run: |
+          cd paper-code
+          mvn deploy -s ../settings.xml -pl oscholar-paper-api -am -DskipTests -B
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish oscholar-social-api
+        uses: actions/checkout@v4
+        with:
+          repository: canxiusi/oscholar-social
+          ref: ${{ inputs.branch }}
+          token: ${{ secrets.PAT_TOKEN }}
+          path: social-code
+
+      - name: Deploy oscholar-social-api
+        run: |
+          cd social-code
+          mvn deploy -s ../settings.xml -pl oscholar-social-api -am -DskipTests -B
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish oscholar-user-api
+        uses: actions/checkout@v4
+        with:
+          repository: canxiusi/oscholar-user
+          ref: ${{ inputs.branch }}
+          token: ${{ secrets.PAT_TOKEN }}
+          path: user-code
+
+      - name: Deploy oscholar-user-api
+        run: |
+          cd user-code
+          mvn deploy -s ../settings.xml -pl oscholar-user-api -am -DskipTests -B
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

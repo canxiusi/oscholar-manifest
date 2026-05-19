@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oscholar-user
+  labels:
+    app: oscholar-user
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: oscholar-user
+  template:
+    metadata:
+      labels:
+        app: oscholar-user
+    spec:
+      imagePullSecrets:
+        - name: aliyun-acr-vpc-secret
+      containers:
+        - name: oscholar-user
+          image: crpi-54xd1yj3irk9pgls.cn-shanghai.personal.cr.aliyuncs.com/oscholar/oscholar-user:placeholder
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: oscholar-user-config
+            - secretRef:
+                name: oscholar-user-secret
+          ports:
+            - containerPort: 8080
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "1"

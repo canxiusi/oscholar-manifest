@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: oscholar-gateway-service
+  labels:
+    app: oscholar-gateway
+spec:
+  selector:
+    app: oscholar-gateway
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: ClusterIP
