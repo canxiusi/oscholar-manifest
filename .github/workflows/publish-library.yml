@@ -70,14 +70,14 @@ jobs:
               <server>
                 <id>github</id>
                 <username>${{ github.actor }}</username>
-                <password>${{ secrets.GITHUB_TOKEN }}</password>
+                <password>${{ secrets.PAT_TOKEN }}</password>
               </server>
             </servers>
           </settings>
           EOF
           mvn deploy -s settings.xml ${{ steps.info.outputs.module }} -DskipTests -B
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
 
   publish_all:
     if: inputs.library == 'publish-all'
@@ -100,7 +100,7 @@ jobs:
               <server>
                 <id>github</id>
                 <username>${{ github.actor }}</username>
-                <password>${{ secrets.GITHUB_TOKEN }}</password>
+                <password>${{ secrets.PAT_TOKEN }}</password>
               </server>
             </servers>
             <profiles>
@@ -133,7 +133,7 @@ jobs:
           cd common-code
           mvn deploy -s ../settings.xml -DskipTests -B
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
 
       - name: Publish oscholar-paper-api
         uses: actions/checkout@v4
@@ -148,7 +148,7 @@ jobs:
           cd paper-code
           mvn deploy -s ../settings.xml -pl oscholar-paper-api -am -DskipTests -B
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
 
       - name: Publish oscholar-social-api
         uses: actions/checkout@v4
@@ -163,7 +163,7 @@ jobs:
           cd social-code
           mvn deploy -s ../settings.xml -pl oscholar-social-api -am -DskipTests -B
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
 
       - name: Publish oscholar-user-api
         uses: actions/checkout@v4
@@ -178,4 +178,4 @@ jobs:
           cd user-code
           mvn deploy -s ../settings.xml -pl oscholar-user-api -am -DskipTests -B
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
