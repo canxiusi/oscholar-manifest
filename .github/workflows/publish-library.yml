@@ -131,7 +131,16 @@ jobs:
       - name: Deploy oscholar-common
         run: |
           cd common-code
-          mvn deploy -s ../settings.xml -DskipTests -B
+          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          GROUP_PATH=$(mvn help:evaluate -Dexpression=project.groupId -q -DforceStdout | tr '.' '/')
+          ARTIFACT=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: token ${{ secrets.PAT_TOKEN }}" \
+            "https://maven.pkg.github.com/canxiusi/oscholar-common/${GROUP_PATH}/${ARTIFACT}/${VERSION}/${ARTIFACT}-${VERSION}.pom")
+          if [ "$STATUS" = "200" ]; then
+            echo "::notice::${ARTIFACT}:${VERSION} already published, skipping."
+          else
+            mvn deploy -s ../settings.xml -DskipTests -B
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
 
@@ -146,7 +155,16 @@ jobs:
       - name: Deploy oscholar-paper-api
         run: |
           cd paper-code
-          mvn deploy -s ../settings.xml -pl oscholar-paper-api -am -DskipTests -B
+          VERSION=$(mvn help:evaluate -Dexpression=project.version -pl oscholar-paper-api -q -DforceStdout)
+          GROUP_PATH=$(mvn help:evaluate -Dexpression=project.groupId -pl oscholar-paper-api -q -DforceStdout | tr '.' '/')
+          ARTIFACT=$(mvn help:evaluate -Dexpression=project.artifactId -pl oscholar-paper-api -q -DforceStdout)
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: token ${{ secrets.PAT_TOKEN }}" \
+            "https://maven.pkg.github.com/canxiusi/oscholar-paper/${GROUP_PATH}/${ARTIFACT}/${VERSION}/${ARTIFACT}-${VERSION}.pom")
+          if [ "$STATUS" = "200" ]; then
+            echo "::notice::${ARTIFACT}:${VERSION} already published, skipping."
+          else
+            mvn deploy -s ../settings.xml -pl oscholar-paper-api -am -DskipTests -B
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
 
@@ -161,7 +179,16 @@ jobs:
       - name: Deploy oscholar-social-api
         run: |
           cd social-code
-          mvn deploy -s ../settings.xml -pl oscholar-social-api -am -DskipTests -B
+          VERSION=$(mvn help:evaluate -Dexpression=project.version -pl oscholar-social-api -q -DforceStdout)
+          GROUP_PATH=$(mvn help:evaluate -Dexpression=project.groupId -pl oscholar-social-api -q -DforceStdout | tr '.' '/')
+          ARTIFACT=$(mvn help:evaluate -Dexpression=project.artifactId -pl oscholar-social-api -q -DforceStdout)
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: token ${{ secrets.PAT_TOKEN }}" \
+            "https://maven.pkg.github.com/canxiusi/oscholar-social/${GROUP_PATH}/${ARTIFACT}/${VERSION}/${ARTIFACT}-${VERSION}.pom")
+          if [ "$STATUS" = "200" ]; then
+            echo "::notice::${ARTIFACT}:${VERSION} already published, skipping."
+          else
+            mvn deploy -s ../settings.xml -pl oscholar-social-api -am -DskipTests -B
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
 
@@ -176,6 +203,15 @@ jobs:
       - name: Deploy oscholar-user-api
         run: |
           cd user-code
-          mvn deploy -s ../settings.xml -pl oscholar-user-api -am -DskipTests -B
+          VERSION=$(mvn help:evaluate -Dexpression=project.version -pl oscholar-user-api -q -DforceStdout)
+          GROUP_PATH=$(mvn help:evaluate -Dexpression=project.groupId -pl oscholar-user-api -q -DforceStdout | tr '.' '/')
+          ARTIFACT=$(mvn help:evaluate -Dexpression=project.artifactId -pl oscholar-user-api -q -DforceStdout)
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: token ${{ secrets.PAT_TOKEN }}" \
+            "https://maven.pkg.github.com/canxiusi/oscholar-user/${GROUP_PATH}/${ARTIFACT}/${VERSION}/${ARTIFACT}-${VERSION}.pom")
+          if [ "$STATUS" = "200" ]; then
+            echo "::notice::${ARTIFACT}:${VERSION} already published, skipping."
+          else
+            mvn deploy -s ../settings.xml -pl oscholar-user-api -am -DskipTests -B
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
