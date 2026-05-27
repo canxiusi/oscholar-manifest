@@ -79,15 +79,13 @@ jobs:
             echo "Package ${ARTIFACT} not found (HTTP $HTTP_CODE), skipping."
             exit 0
           fi
-          VERSION_ID=$(echo "$BODY" | jq -r '.[] | select(.name=="1.0.0") | .id')
-          if [ -n "$VERSION_ID" ] && [ "$VERSION_ID" != "null" ]; then
-            echo "Deleting ${ARTIFACT}:1.0.0 (version id: ${VERSION_ID})"
-            curl -s -X DELETE -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
-              "https://api.github.com/users/canxiusi/packages/maven/${ARTIFACT}/versions/$VERSION_ID"
-            echo "Delete done."
-          else
-            echo "${ARTIFACT}:1.0.0 version not found, skipping."
-          fi
+          echo "$BODY" | jq -r '.[].id' | while read -r VID; do
+            if [ -n "$VID" ] && [ "$VID" != "null" ]; then
+              echo "Deleting version id: $VID"
+              curl -s -X DELETE -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
+                "https://api.github.com/users/canxiusi/packages/maven/${ARTIFACT}/versions/$VID"
+            fi
+          done
 
       - name: Publish to GitHub Packages
         run: |
@@ -155,9 +153,9 @@ jobs:
           token: ${{ secrets.PAT_TOKEN }}
           path: common-code
 
-      - name: Delete existing packages
+      - name: Delete existing oscholar-common versions
         run: |
-          delete_pkg_version() {
+          delete_all_versions() {
             local pkg_name=$1
             echo "--- Checking package: ${pkg_name} ---"
             RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
@@ -166,20 +164,18 @@ jobs:
             BODY=$(echo "$RESPONSE" | sed '$d')
             echo "HTTP status: $HTTP_CODE"
             if [ "$HTTP_CODE" != "200" ]; then
-              echo "Package ${pkg_name} not found or no access (HTTP $HTTP_CODE), skipping."
+              echo "Package ${pkg_name} not found (HTTP $HTTP_CODE), skipping."
               return 0
             fi
-            VERSION_ID=$(echo "$BODY" | jq -r '.[] | select(.name=="1.0.0") | .id')
-            if [ -n "$VERSION_ID" ] && [ "$VERSION_ID" != "null" ]; then
-              echo "Deleting ${pkg_name}:1.0.0 (version id: ${VERSION_ID})"
-              curl -s -X DELETE -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
-                "https://api.github.com/users/canxiusi/packages/maven/${pkg_name}/versions/${VERSION_ID}"
-              echo "Delete done."
-            else
-              echo "${pkg_name}:1.0.0 version not found, skipping."
-            fi
+            echo "$BODY" | jq -r '.[].id' | while read -r VID; do
+              if [ -n "$VID" ] && [ "$VID" != "null" ]; then
+                echo "Deleting version id: $VID"
+                curl -s -X DELETE -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
+                  "https://api.github.com/users/canxiusi/packages/maven/${pkg_name}/versions/${VID}"
+              fi
+            done
           }
-          delete_pkg_version "com.oscholar.oscholar-common"
+          delete_all_versions "com.oscholar.oscholar-common"
 
       - name: Deploy oscholar-common
         run: |
@@ -196,9 +192,9 @@ jobs:
           token: ${{ secrets.PAT_TOKEN }}
           path: paper-code
 
-      - name: Delete existing oscholar-paper-api
+      - name: Delete existing oscholar-paper-api versions
         run: |
-          delete_pkg_version() {
+          delete_all_versions() {
             local pkg_name=$1
             echo "--- Checking package: ${pkg_name} ---"
             RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
@@ -210,16 +206,15 @@ jobs:
               echo "Package ${pkg_name} not found (HTTP $HTTP_CODE), skipping."
               return 0
             fi
-            VERSION_ID=$(echo "$BODY" | jq -r '.[] | select(.name=="1.0.0") | .id')
-            if [ -n "$VERSION_ID" ] && [ "$VERSION_ID" != "null" ]; then
-              echo "Deleting ${pkg_name}:1.0.0 (version id: ${VERSION_ID})"
-              curl -s -X DELETE -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
-                "https://api.github.com/users/canxiusi/packages/maven/${pkg_name}/versions/${VERSION_ID}"
-            else
-              echo "${pkg_name}:1.0.0 version not found, skipping."
-            fi
+            echo "$BODY" | jq -r '.[].id' | while read -r VID; do
+              if [ -n "$VID" ] && [ "$VID" != "null" ]; then
+                echo "Deleting version id: $VID"
+                curl -s -X DELETE -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
+                  "https://api.github.com/users/canxiusi/packages/maven/${pkg_name}/versions/${VID}"
+              fi
+            done
           }
-          delete_pkg_version "com.oscholar.oscholar-paper-api"
+          delete_all_versions "com.oscholar.oscholar-paper-api"
 
       - name: Deploy oscholar-paper-api
         run: |
@@ -236,9 +231,9 @@ jobs:
           token: ${{ secrets.PAT_TOKEN }}
           path: social-code
 
-      - name: Delete existing oscholar-social-api
+      - name: Delete existing oscholar-social-api versions
         run: |
-          delete_pkg_version() {
+          delete_all_versions() {
             local pkg_name=$1
             echo "--- Checking package: ${pkg_name} ---"
             RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
@@ -250,16 +245,15 @@ jobs:
               echo "Package ${pkg_name} not found (HTTP $HTTP_CODE), skipping."
               return 0
             fi
-            VERSION_ID=$(echo "$BODY" | jq -r '.[] | select(.name=="1.0.0") | .id')
-            if [ -n "$VERSION_ID" ] && [ "$VERSION_ID" != "null" ]; then
-              echo "Deleting ${pkg_name}:1.0.0 (version id: ${VERSION_ID})"
-              curl -s -X DELETE -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
-                "https://api.github.com/users/canxiusi/packages/maven/${pkg_name}/versions/${VERSION_ID}"
-            else
-              echo "${pkg_name}:1.0.0 version not found, skipping."
-            fi
+            echo "$BODY" | jq -r '.[].id' | while read -r VID; do
+              if [ -n "$VID" ] && [ "$VID" != "null" ]; then
+                echo "Deleting version id: $VID"
+                curl -s -X DELETE -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
+                  "https://api.github.com/users/canxiusi/packages/maven/${pkg_name}/versions/${VID}"
+              fi
+            done
           }
-          delete_pkg_version "com.oscholar.oscholar-social-api"
+          delete_all_versions "com.oscholar.oscholar-social-api"
 
       - name: Deploy oscholar-social-api
         run: |
@@ -276,9 +270,9 @@ jobs:
           token: ${{ secrets.PAT_TOKEN }}
           path: user-code
 
-      - name: Delete existing oscholar-user-api
+      - name: Delete existing oscholar-user-api versions
         run: |
-          delete_pkg_version() {
+          delete_all_versions() {
             local pkg_name=$1
             echo "--- Checking package: ${pkg_name} ---"
             RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
@@ -290,16 +284,15 @@ jobs:
               echo "Package ${pkg_name} not found (HTTP $HTTP_CODE), skipping."
               return 0
             fi
-            VERSION_ID=$(echo "$BODY" | jq -r '.[] | select(.name=="1.0.0") | .id')
-            if [ -n "$VERSION_ID" ] && [ "$VERSION_ID" != "null" ]; then
-              echo "Deleting ${pkg_name}:1.0.0 (version id: ${VERSION_ID})"
-              curl -s -X DELETE -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
-                "https://api.github.com/users/canxiusi/packages/maven/${pkg_name}/versions/${VERSION_ID}"
-            else
-              echo "${pkg_name}:1.0.0 version not found, skipping."
-            fi
+            echo "$BODY" | jq -r '.[].id' | while read -r VID; do
+              if [ -n "$VID" ] && [ "$VID" != "null" ]; then
+                echo "Deleting version id: $VID"
+                curl -s -X DELETE -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
+                  "https://api.github.com/users/canxiusi/packages/maven/${pkg_name}/versions/${VID}"
+              fi
+            done
           }
-          delete_pkg_version "com.oscholar.oscholar-user-api"
+          delete_all_versions "com.oscholar.oscholar-user-api"
 
       - name: Deploy oscholar-user-api
         run: |
