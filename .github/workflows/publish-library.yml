@@ -34,22 +34,18 @@ jobs:
             oscholar-common)
               echo "repo=oscholar-common" >> $GITHUB_OUTPUT
               echo "module=" >> $GITHUB_OUTPUT
-              echo "artifact=com.oscholar.oscholar-common" >> $GITHUB_OUTPUT
               ;;
             oscholar-paper-api)
               echo "repo=oscholar-paper" >> $GITHUB_OUTPUT
               echo "module=-pl oscholar-paper-api -am" >> $GITHUB_OUTPUT
-              echo "artifact=com.oscholar.oscholar-paper-api" >> $GITHUB_OUTPUT
               ;;
             oscholar-social-api)
               echo "repo=oscholar-social" >> $GITHUB_OUTPUT
               echo "module=-pl oscholar-social-api -am" >> $GITHUB_OUTPUT
-              echo "artifact=com.oscholar.oscholar-social-api" >> $GITHUB_OUTPUT
               ;;
             oscholar-user-api)
               echo "repo=oscholar-user" >> $GITHUB_OUTPUT
               echo "module=-pl oscholar-user-api -am" >> $GITHUB_OUTPUT
-              echo "artifact=com.oscholar.oscholar-user-api" >> $GITHUB_OUTPUT
               ;;
           esac
 
@@ -66,48 +62,12 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: List all Maven packages (diagnostic)
+      - name: Delete and deploy
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          echo "=== Listing all Maven packages for canxiusi ==="
-          curl -s -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
-            "https://api.github.com/users/canxiusi/packages?package_type=maven" | jq -r '.[].name'
-
-      - name: Delete existing package version
-        run: |
-          REPO="${{ steps.info.outputs.repo }}"
-          ARTIFACT="${{ steps.info.outputs.artifact }}"
-
-          delete_pkg() {
-            local pkg_name=$1
-            echo "--- Trying to delete package: ${pkg_name} ---"
-            RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
-              "https://api.github.com/users/canxiusi/packages/maven/${pkg_name}/versions")
-            HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-            BODY=$(echo "$RESPONSE" | sed '$d')
-            echo "HTTP status: $HTTP_CODE"
-            echo "Response body: $BODY"
-            if [ "$HTTP_CODE" != "200" ]; then
-              echo "Package ${pkg_name} not found (HTTP $HTTP_CODE), skipping."
-              return 0
-            fi
-            echo "$BODY" | jq -r '.[].id' | while read -r VID; do
-              if [ -n "$VID" ] && [ "$VID" != "null" ]; then
-                echo "Deleting version id: $VID"
-                DEL_RESP=$(curl -s -w "\n%{http_code}" -X DELETE -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
-                  "https://api.github.com/users/canxiusi/packages/maven/${pkg_name}/versions/$VID")
-                echo "Delete response: $DEL_RESP"
-              fi
-            done
-          }
-
-          echo "=== Trying with groupId.artifactId format ==="
-          delete_pkg "${ARTIFACT}"
-
-          echo "=== Trying with just artifactId format ==="
-          delete_pkg "${{ inputs.library }}"
-
-      - name: Publish to GitHub Packages
-        run: |
+          # Create settings.xml
           cat > settings.xml <<EOF
           <settings>
             <servers>
@@ -119,9 +79,50 @@ jobs:
             </servers>
           </settings>
           EOF
+
+          # Function to delete all versions of a package using gh CLI
+          delete_package() {
+            local pkg_name=$1
+            echo "=== Attempting to delete package: ${pkg_name} ==="
+            # List versions
+            VERSIONS=$(gh api "/users/canxiusi/packages/maven/${pkg_name}/versions" --jq '.[].id' 2>&1) || true
+            if echo "$VERSIONS" | grep -q "Not Found\|404\|Package not found"; then
+              echo "Package ${pkg_name} not found, skipping."
+              return 0
+            fi
+            echo "Found versions: $VERSIONS"
+            for VID in $VERSIONS; do
+              if [ -n "$VID" ] && [ "$VID" != "null" ]; then
+                echo "Deleting version $VID..."
+                gh api --method DELETE "/users/canxiusi/packages/maven/${pkg_name}/versions/${VID}" 2>&1 || true
+              fi
+            done
+          }
+
+          # List all packages first (diagnostic)
+          echo "=== All Maven packages ==="
+          gh api "/users/canxiusi/packages?package_type=maven" --jq '.[].name' 2>&1 || echo "Failed to list packages"
+
+          # Try to deploy
+          echo "=== First deploy attempt ==="
+          if mvn deploy -s settings.xml ${{ steps.info.outputs.module }} -DskipTests -B 2>&1; then
+            echo "Deploy succeeded on first attempt!"
+            exit 0
+          fi
+
+          echo "=== Deploy failed (likely 409), deleting existing versions ==="
+          # Try multiple package name formats
+          delete_package "com.oscholar.oscholar-common"
+          delete_package "oscholar-common"
+          delete_package "com.oscholar.oscholar-paper-api"
+          delete_package "oscholar-paper-api"
+          delete_package "com.oscholar.oscholar-social-api"
+          delete_package "oscholar-social-api"
+          delete_package "com.oscholar.oscholar-user-api"
+          delete_package "oscholar-user-api"
+
+          echo "=== Retry deploy ==="
           mvn deploy -s settings.xml ${{ steps.info.outputs.module }} -DskipTests -B
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
 
   publish_all:
     if: inputs.library == 'publish-all'
@@ -164,6 +165,13 @@ jobs:
           </settings>
           EOF
 
+      - name: List all packages (diagnostic)
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          echo "=== All Maven packages for canxiusi ==="
+          gh api "/users/canxiusi/packages?package_type=maven" --jq '.[].name' || echo "Failed to list"
+
       - name: Checkout oscholar-common
         uses: actions/checkout@v4
         with:
@@ -172,45 +180,25 @@ jobs:
           token: ${{ secrets.PAT_TOKEN }}
           path: common-code
 
-      - name: List all Maven packages (diagnostic)
+      - name: Deploy oscholar-common
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          echo "=== Listing all Maven packages for canxiusi ==="
-          curl -s -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
-            "https://api.github.com/users/canxiusi/packages?package_type=maven" | jq '.[].name'
-
-      - name: Delete existing oscholar-common versions
-        run: |
-          delete_all_versions() {
-            local pkg_name=$1
-            echo "--- Trying package: ${pkg_name} ---"
-            RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
-              "https://api.github.com/users/canxiusi/packages/maven/${pkg_name}/versions")
-            HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-            BODY=$(echo "$RESPONSE" | sed '$d')
-            echo "HTTP status: $HTTP_CODE"
-            echo "Response: $BODY"
-            if [ "$HTTP_CODE" != "200" ]; then
-              echo "Not found (HTTP $HTTP_CODE), skipping."
-              return 0
-            fi
-            echo "$BODY" | jq -r '.[].id' | while read -r VID; do
-              if [ -n "$VID" ] && [ "$VID" != "null" ]; then
-                echo "Deleting version id: $VID"
-                DEL_RESP=$(curl -s -w "\n%{http_code}" -X DELETE -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
-                  "https://api.github.com/users/canxiusi/packages/maven/${pkg_name}/versions/${VID}")
-                echo "Delete response: $DEL_RESP"
-              fi
+          delete_package() {
+            local pkg=$1
+            echo "Deleting package: $pkg"
+            for VID in $(gh api "/users/canxiusi/packages/maven/${pkg}/versions" --jq '.[].id' 2>/dev/null); do
+              gh api --method DELETE "/users/canxiusi/packages/maven/${pkg}/versions/${VID}" 2>&1 || true
             done
           }
-          delete_all_versions "com.oscholar.oscholar-common"
-          delete_all_versions "oscholar-common"
-
-      - name: Deploy oscholar-common
-        run: |
           cd common-code
-          mvn deploy -s ../settings.xml -DskipTests -B
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+          if ! mvn deploy -s ../settings.xml -DskipTests -B 2>&1; then
+            echo "=== 409 conflict, deleting and retrying ==="
+            delete_package "com.oscholar.oscholar-common"
+            delete_package "oscholar-common"
+            mvn deploy -s ../settings.xml -DskipTests -B
+          fi
 
       - name: Checkout oscholar-paper
         uses: actions/checkout@v4
@@ -220,39 +208,25 @@ jobs:
           token: ${{ secrets.PAT_TOKEN }}
           path: paper-code
 
-      - name: Delete existing oscholar-paper-api versions
+      - name: Deploy oscholar-paper-api
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          delete_all_versions() {
-            local pkg_name=$1
-            echo "--- Trying package: ${pkg_name} ---"
-            RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
-              "https://api.github.com/users/canxiusi/packages/maven/${pkg_name}/versions")
-            HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-            BODY=$(echo "$RESPONSE" | sed '$d')
-            echo "HTTP status: $HTTP_CODE"
-            echo "Response: $BODY"
-            if [ "$HTTP_CODE" != "200" ]; then
-              echo "Not found (HTTP $HTTP_CODE), skipping."
-              return 0
-            fi
-            echo "$BODY" | jq -r '.[].id' | while read -r VID; do
-              if [ -n "$VID" ] && [ "$VID" != "null" ]; then
-                echo "Deleting version id: $VID"
-                DEL_RESP=$(curl -s -w "\n%{http_code}" -X DELETE -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
-                  "https://api.github.com/users/canxiusi/packages/maven/${pkg_name}/versions/${VID}")
-                echo "Delete response: $DEL_RESP"
-              fi
+          delete_package() {
+            local pkg=$1
+            echo "Deleting package: $pkg"
+            for VID in $(gh api "/users/canxiusi/packages/maven/${pkg}/versions" --jq '.[].id' 2>/dev/null); do
+              gh api --method DELETE "/users/canxiusi/packages/maven/${pkg}/versions/${VID}" 2>&1 || true
             done
           }
-          delete_all_versions "com.oscholar.oscholar-paper-api"
-          delete_all_versions "oscholar-paper-api"
-
-      - name: Deploy oscholar-paper-api
-        run: |
           cd paper-code
-          mvn deploy -s ../settings.xml -pl oscholar-paper-api -am -DskipTests -B
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+          if ! mvn deploy -s ../settings.xml -pl oscholar-paper-api -am -DskipTests -B 2>&1; then
+            echo "=== 409 conflict, deleting and retrying ==="
+            delete_package "com.oscholar.oscholar-paper-api"
+            delete_package "oscholar-paper-api"
+            mvn deploy -s ../settings.xml -pl oscholar-paper-api -am -DskipTests -B
+          fi
 
       - name: Checkout oscholar-social
         uses: actions/checkout@v4
@@ -262,39 +236,25 @@ jobs:
           token: ${{ secrets.PAT_TOKEN }}
           path: social-code
 
-      - name: Delete existing oscholar-social-api versions
+      - name: Deploy oscholar-social-api
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          delete_all_versions() {
-            local pkg_name=$1
-            echo "--- Trying package: ${pkg_name} ---"
-            RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
-              "https://api.github.com/users/canxiusi/packages/maven/${pkg_name}/versions")
-            HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-            BODY=$(echo "$RESPONSE" | sed '$d')
-            echo "HTTP status: $HTTP_CODE"
-            echo "Response: $BODY"
-            if [ "$HTTP_CODE" != "200" ]; then
-              echo "Not found (HTTP $HTTP_CODE), skipping."
-              return 0
-            fi
-            echo "$BODY" | jq -r '.[].id' | while read -r VID; do
-              if [ -n "$VID" ] && [ "$VID" != "null" ]; then
-                echo "Deleting version id: $VID"
-                DEL_RESP=$(curl -s -w "\n%{http_code}" -X DELETE -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
-                  "https://api.github.com/users/canxiusi/packages/maven/${pkg_name}/versions/${VID}")
-                echo "Delete response: $DEL_RESP"
-              fi
+          delete_package() {
+            local pkg=$1
+            echo "Deleting package: $pkg"
+            for VID in $(gh api "/users/canxiusi/packages/maven/${pkg}/versions" --jq '.[].id' 2>/dev/null); do
+              gh api --method DELETE "/users/canxiusi/packages/maven/${pkg}/versions/${VID}" 2>&1 || true
             done
           }
-          delete_all_versions "com.oscholar.oscholar-social-api"
-          delete_all_versions "oscholar-social-api"
-
-      - name: Deploy oscholar-social-api
-        run: |
           cd social-code
-          mvn deploy -s ../settings.xml -pl oscholar-social-api -am -DskipTests -B
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+          if ! mvn deploy -s ../settings.xml -pl oscholar-social-api -am -DskipTests -B 2>&1; then
+            echo "=== 409 conflict, deleting and retrying ==="
+            delete_package "com.oscholar.oscholar-social-api"
+            delete_package "oscholar-social-api"
+            mvn deploy -s ../settings.xml -pl oscholar-social-api -am -DskipTests -B
+          fi
 
       - name: Checkout oscholar-user
         uses: actions/checkout@v4
@@ -304,36 +264,22 @@ jobs:
           token: ${{ secrets.PAT_TOKEN }}
           path: user-code
 
-      - name: Delete existing oscholar-user-api versions
+      - name: Deploy oscholar-user-api
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          delete_all_versions() {
-            local pkg_name=$1
-            echo "--- Trying package: ${pkg_name} ---"
-            RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
-              "https://api.github.com/users/canxiusi/packages/maven/${pkg_name}/versions")
-            HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-            BODY=$(echo "$RESPONSE" | sed '$d')
-            echo "HTTP status: $HTTP_CODE"
-            echo "Response: $BODY"
-            if [ "$HTTP_CODE" != "200" ]; then
-              echo "Not found (HTTP $HTTP_CODE), skipping."
-              return 0
-            fi
-            echo "$BODY" | jq -r '.[].id' | while read -r VID; do
-              if [ -n "$VID" ] && [ "$VID" != "null" ]; then
-                echo "Deleting version id: $VID"
-                DEL_RESP=$(curl -s -w "\n%{http_code}" -X DELETE -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
-                  "https://api.github.com/users/canxiusi/packages/maven/${pkg_name}/versions/${VID}")
-                echo "Delete response: $DEL_RESP"
-              fi
+          delete_package() {
+            local pkg=$1
+            echo "Deleting package: $pkg"
+            for VID in $(gh api "/users/canxiusi/packages/maven/${pkg}/versions" --jq '.[].id' 2>/dev/null); do
+              gh api --method DELETE "/users/canxiusi/packages/maven/${pkg}/versions/${VID}" 2>&1 || true
             done
           }
-          delete_all_versions "com.oscholar.oscholar-user-api"
-          delete_all_versions "oscholar-user-api"
-
-      - name: Deploy oscholar-user-api
-        run: |
           cd user-code
-          mvn deploy -s ../settings.xml -pl oscholar-user-api -am -DskipTests -B
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+          if ! mvn deploy -s ../settings.xml -pl oscholar-user-api -am -DskipTests -B 2>&1; then
+            echo "=== 409 conflict, deleting and retrying ==="
+            delete_package "com.oscholar.oscholar-user-api"
+            delete_package "oscholar-user-api"
+            mvn deploy -s ../settings.xml -pl oscholar-user-api -am -DskipTests -B
+          fi
