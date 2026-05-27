@@ -12,4 +12,3 @@ images:
 resources:
 - ../../base
 - configmap.yaml
-- secret.yaml
