@@ -34,18 +34,22 @@ jobs:
             oscholar-common)
               echo "repo=oscholar-common" >> $GITHUB_OUTPUT
               echo "module=" >> $GITHUB_OUTPUT
+              echo "artifact=com.oscholar.oscholar-common" >> $GITHUB_OUTPUT
               ;;
             oscholar-paper-api)
               echo "repo=oscholar-paper" >> $GITHUB_OUTPUT
               echo "module=-pl oscholar-paper-api -am" >> $GITHUB_OUTPUT
+              echo "artifact=com.oscholar.oscholar-paper-api" >> $GITHUB_OUTPUT
               ;;
             oscholar-social-api)
               echo "repo=oscholar-social" >> $GITHUB_OUTPUT
               echo "module=-pl oscholar-social-api -am" >> $GITHUB_OUTPUT
+              echo "artifact=com.oscholar.oscholar-social-api" >> $GITHUB_OUTPUT
               ;;
             oscholar-user-api)
               echo "repo=oscholar-user" >> $GITHUB_OUTPUT
               echo "module=-pl oscholar-user-api -am" >> $GITHUB_OUTPUT
+              echo "artifact=com.oscholar.oscholar-user-api" >> $GITHUB_OUTPUT
               ;;
           esac
 
@@ -61,6 +65,20 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+
+      - name: Delete existing package version
+        run: |
+          ARTIFACT="${{ steps.info.outputs.artifact }}"
+          VERSION_ID=$(curl -s -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
+            "https://api.github.com/users/canxiusi/packages/maven/${ARTIFACT}/versions" \
+            | jq -r '.[] | select(.name=="1.0.0") | .id')
+          if [ -n "$VERSION_ID" ] && [ "$VERSION_ID" != "null" ]; then
+            echo "Deleting ${ARTIFACT}:1.0.0 (id: $VERSION_ID)"
+            curl -s -X DELETE -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
+              "https://api.github.com/users/canxiusi/packages/maven/${ARTIFACT}/versions/$VERSION_ID"
+          else
+            echo "${ARTIFACT}:1.0.0 not found, skipping delete."
+          fi
 
       - name: Publish to GitHub Packages
         run: |
@@ -120,7 +138,7 @@ jobs:
           </settings>
           EOF
 
-      - name: Publish oscholar-common
+      - name: Checkout oscholar-common
         uses: actions/checkout@v4
         with:
           repository: canxiusi/oscholar-common
@@ -128,20 +146,27 @@ jobs:
           token: ${{ secrets.PAT_TOKEN }}
           path: common-code
 
+      - name: Delete existing oscholar-common
+        run: |
+          VERSION_ID=$(curl -s -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
+            "https://api.github.com/users/canxiusi/packages/maven/com.oscholar.oscholar-common/versions" \
+            | jq -r '.[] | select(.name=="1.0.0") | .id')
+          if [ -n "$VERSION_ID" ] && [ "$VERSION_ID" != "null" ]; then
+            echo "Deleting oscholar-common:1.0.0 (id: $VERSION_ID)"
+            curl -s -X DELETE -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
+              "https://api.github.com/users/canxiusi/packages/maven/com.oscholar.oscholar-common/versions/$VERSION_ID"
+          else
+            echo "oscholar-common:1.0.0 not found, skipping delete."
+          fi
+
       - name: Deploy oscholar-common
         run: |
           cd common-code
-          mvn deploy -s ../settings.xml -DskipTests -B 2>&1 | tee deploy.log || {
-            if grep -q "status code: 409" deploy.log; then
-              echo "::notice::oscholar-common already published, skipping."
-            else
-              exit 1
-            fi
-          }
+          mvn deploy -s ../settings.xml -DskipTests -B
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
 
-      - name: Publish oscholar-paper-api
+      - name: Checkout oscholar-paper
         uses: actions/checkout@v4
         with:
           repository: canxiusi/oscholar-paper
@@ -149,20 +174,27 @@ jobs:
           token: ${{ secrets.PAT_TOKEN }}
           path: paper-code
 
+      - name: Delete existing oscholar-paper-api
+        run: |
+          VERSION_ID=$(curl -s -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
+            "https://api.github.com/users/canxiusi/packages/maven/com.oscholar.oscholar-paper-api/versions" \
+            | jq -r '.[] | select(.name=="1.0.0") | .id')
+          if [ -n "$VERSION_ID" ] && [ "$VERSION_ID" != "null" ]; then
+            echo "Deleting oscholar-paper-api:1.0.0 (id: $VERSION_ID)"
+            curl -s -X DELETE -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
+              "https://api.github.com/users/canxiusi/packages/maven/com.oscholar.oscholar-paper-api/versions/$VERSION_ID"
+          else
+            echo "oscholar-paper-api:1.0.0 not found, skipping delete."
+          fi
+
       - name: Deploy oscholar-paper-api
         run: |
           cd paper-code
-          mvn deploy -s ../settings.xml -pl oscholar-paper-api -am -DskipTests -B 2>&1 | tee deploy.log || {
-            if grep -q "status code: 409" deploy.log; then
-              echo "::notice::oscholar-paper-api already published, skipping."
-            else
-              exit 1
-            fi
-          }
+          mvn deploy -s ../settings.xml -pl oscholar-paper-api -am -DskipTests -B
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
 
-      - name: Publish oscholar-social-api
+      - name: Checkout oscholar-social
         uses: actions/checkout@v4
         with:
           repository: canxiusi/oscholar-social
@@ -170,20 +202,27 @@ jobs:
           token: ${{ secrets.PAT_TOKEN }}
           path: social-code
 
+      - name: Delete existing oscholar-social-api
+        run: |
+          VERSION_ID=$(curl -s -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
+            "https://api.github.com/users/canxiusi/packages/maven/com.oscholar.oscholar-social-api/versions" \
+            | jq -r '.[] | select(.name=="1.0.0") | .id')
+          if [ -n "$VERSION_ID" ] && [ "$VERSION_ID" != "null" ]; then
+            echo "Deleting oscholar-social-api:1.0.0 (id: $VERSION_ID)"
+            curl -s -X DELETE -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
+              "https://api.github.com/users/canxiusi/packages/maven/com.oscholar.oscholar-social-api/versions/$VERSION_ID"
+          else
+            echo "oscholar-social-api:1.0.0 not found, skipping delete."
+          fi
+
       - name: Deploy oscholar-social-api
         run: |
           cd social-code
-          mvn deploy -s ../settings.xml -pl oscholar-social-api -am -DskipTests -B 2>&1 | tee deploy.log || {
-            if grep -q "status code: 409" deploy.log; then
-              echo "::notice::oscholar-social-api already published, skipping."
-            else
-              exit 1
-            fi
-          }
+          mvn deploy -s ../settings.xml -pl oscholar-social-api -am -DskipTests -B
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
 
-      - name: Publish oscholar-user-api
+      - name: Checkout oscholar-user
         uses: actions/checkout@v4
         with:
           repository: canxiusi/oscholar-user
@@ -191,15 +230,22 @@ jobs:
           token: ${{ secrets.PAT_TOKEN }}
           path: user-code
 
+      - name: Delete existing oscholar-user-api
+        run: |
+          VERSION_ID=$(curl -s -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
+            "https://api.github.com/users/canxiusi/packages/maven/com.oscholar.oscholar-user-api/versions" \
+            | jq -r '.[] | select(.name=="1.0.0") | .id')
+          if [ -n "$VERSION_ID" ] && [ "$VERSION_ID" != "null" ]; then
+            echo "Deleting oscholar-user-api:1.0.0 (id: $VERSION_ID)"
+            curl -s -X DELETE -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" \
+              "https://api.github.com/users/canxiusi/packages/maven/com.oscholar.oscholar-user-api/versions/$VERSION_ID"
+          else
+            echo "oscholar-user-api:1.0.0 not found, skipping delete."
+          fi
+
       - name: Deploy oscholar-user-api
         run: |
           cd user-code
-          mvn deploy -s ../settings.xml -pl oscholar-user-api -am -DskipTests -B 2>&1 | tee deploy.log || {
-            if grep -q "status code: 409" deploy.log; then
-              echo "::notice::oscholar-user-api already published, skipping."
-            else
-              exit 1
-            fi
-          }
+          mvn deploy -s ../settings.xml -pl oscholar-user-api -am -DskipTests -B
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
