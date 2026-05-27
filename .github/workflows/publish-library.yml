@@ -62,7 +62,7 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Delete and deploy
+      - name: Delete existing package and deploy
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
@@ -80,48 +80,18 @@ jobs:
           </settings>
           EOF
 
-          # Function to delete all versions of a package using gh CLI
+          # Delete entire package (not just versions) to avoid 409
           delete_package() {
             local pkg_name=$1
-            echo "=== Attempting to delete package: ${pkg_name} ==="
-            # List versions
-            VERSIONS=$(gh api "/users/canxiusi/packages/maven/${pkg_name}/versions" --jq '.[].id' 2>&1) || true
-            if echo "$VERSIONS" | grep -q "Not Found\|404\|Package not found"; then
-              echo "Package ${pkg_name} not found, skipping."
-              return 0
-            fi
-            echo "Found versions: $VERSIONS"
-            for VID in $VERSIONS; do
-              if [ -n "$VID" ] && [ "$VID" != "null" ]; then
-                echo "Deleting version $VID..."
-                gh api --method DELETE "/users/canxiusi/packages/maven/${pkg_name}/versions/${VID}" 2>&1 || true
-              fi
-            done
+            echo "=== Deleting package: ${pkg_name} ==="
+            gh api --method DELETE "/users/canxiusi/packages/maven/${pkg_name}" 2>&1 || echo "Package ${pkg_name} not found or already deleted"
           }
 
-          # List all packages first (diagnostic)
-          echo "=== All Maven packages ==="
-          gh api "/users/canxiusi/packages?package_type=maven" --jq '.[].name' 2>&1 || echo "Failed to list packages"
+          # Always delete first, then deploy
+          echo "=== Cleaning existing packages ==="
+          delete_package "com.oscholar.${{ inputs.library }}"
 
-          # Try to deploy
-          echo "=== First deploy attempt ==="
-          if mvn deploy -s settings.xml ${{ steps.info.outputs.module }} -DskipTests -B 2>&1; then
-            echo "Deploy succeeded on first attempt!"
-            exit 0
-          fi
-
-          echo "=== Deploy failed (likely 409), deleting existing versions ==="
-          # Try multiple package name formats
-          delete_package "com.oscholar.oscholar-common"
-          delete_package "oscholar-common"
-          delete_package "com.oscholar.oscholar-paper-api"
-          delete_package "oscholar-paper-api"
-          delete_package "com.oscholar.oscholar-social-api"
-          delete_package "oscholar-social-api"
-          delete_package "com.oscholar.oscholar-user-api"
-          delete_package "oscholar-user-api"
-
-          echo "=== Retry deploy ==="
+          echo "=== Deploying ==="
           mvn deploy -s settings.xml ${{ steps.info.outputs.module }} -DskipTests -B
 
   publish_all:
@@ -165,12 +135,19 @@ jobs:
           </settings>
           EOF
 
-      - name: List all packages (diagnostic)
+      - name: Delete all existing packages
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          echo "=== All Maven packages for canxiusi ==="
-          gh api "/users/canxiusi/packages?package_type=maven" --jq '.[].name' || echo "Failed to list"
+          delete_package() {
+            local pkg=$1
+            echo "Deleting package: $pkg"
+            gh api --method DELETE "/users/canxiusi/packages/maven/${pkg}" 2>&1 || echo "  -> not found or already deleted"
+          }
+          delete_package "com.oscholar.oscholar-common"
+          delete_package "com.oscholar.oscholar-paper-api"
+          delete_package "com.oscholar.oscholar-social-api"
+          delete_package "com.oscholar.oscholar-user-api"
 
       - name: Checkout oscholar-common
         uses: actions/checkout@v4
@@ -182,23 +159,10 @@ jobs:
 
       - name: Deploy oscholar-common
         env:
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          delete_package() {
-            local pkg=$1
-            echo "Deleting package: $pkg"
-            for VID in $(gh api "/users/canxiusi/packages/maven/${pkg}/versions" --jq '.[].id' 2>/dev/null); do
-              gh api --method DELETE "/users/canxiusi/packages/maven/${pkg}/versions/${VID}" 2>&1 || true
-            done
-          }
           cd common-code
-          if ! mvn deploy -s ../settings.xml -DskipTests -B 2>&1; then
-            echo "=== 409 conflict, deleting and retrying ==="
-            delete_package "com.oscholar.oscholar-common"
-            delete_package "oscholar-common"
-            mvn deploy -s ../settings.xml -DskipTests -B
-          fi
+          mvn deploy -s ../settings.xml -DskipTests -B
 
       - name: Checkout oscholar-paper
         uses: actions/checkout@v4
@@ -210,23 +174,10 @@ jobs:
 
       - name: Deploy oscholar-paper-api
         env:
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          delete_package() {
-            local pkg=$1
-            echo "Deleting package: $pkg"
-            for VID in $(gh api "/users/canxiusi/packages/maven/${pkg}/versions" --jq '.[].id' 2>/dev/null); do
-              gh api --method DELETE "/users/canxiusi/packages/maven/${pkg}/versions/${VID}" 2>&1 || true
-            done
-          }
           cd paper-code
-          if ! mvn deploy -s ../settings.xml -pl oscholar-paper-api -am -DskipTests -B 2>&1; then
-            echo "=== 409 conflict, deleting and retrying ==="
-            delete_package "com.oscholar.oscholar-paper-api"
-            delete_package "oscholar-paper-api"
-            mvn deploy -s ../settings.xml -pl oscholar-paper-api -am -DskipTests -B
-          fi
+          mvn deploy -s ../settings.xml -pl oscholar-paper-api -am -DskipTests -B
 
       - name: Checkout oscholar-social
         uses: actions/checkout@v4
@@ -238,23 +189,10 @@ jobs:
 
       - name: Deploy oscholar-social-api
         env:
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          delete_package() {
-            local pkg=$1
-            echo "Deleting package: $pkg"
-            for VID in $(gh api "/users/canxiusi/packages/maven/${pkg}/versions" --jq '.[].id' 2>/dev/null); do
-              gh api --method DELETE "/users/canxiusi/packages/maven/${pkg}/versions/${VID}" 2>&1 || true
-            done
-          }
           cd social-code
-          if ! mvn deploy -s ../settings.xml -pl oscholar-social-api -am -DskipTests -B 2>&1; then
-            echo "=== 409 conflict, deleting and retrying ==="
-            delete_package "com.oscholar.oscholar-social-api"
-            delete_package "oscholar-social-api"
-            mvn deploy -s ../settings.xml -pl oscholar-social-api -am -DskipTests -B
-          fi
+          mvn deploy -s ../settings.xml -pl oscholar-social-api -am -DskipTests -B
 
       - name: Checkout oscholar-user
         uses: actions/checkout@v4
@@ -266,20 +204,7 @@ jobs:
 
       - name: Deploy oscholar-user-api
         env:
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          delete_package() {
-            local pkg=$1
-            echo "Deleting package: $pkg"
-            for VID in $(gh api "/users/canxiusi/packages/maven/${pkg}/versions" --jq '.[].id' 2>/dev/null); do
-              gh api --method DELETE "/users/canxiusi/packages/maven/${pkg}/versions/${VID}" 2>&1 || true
-            done
-          }
           cd user-code
-          if ! mvn deploy -s ../settings.xml -pl oscholar-user-api -am -DskipTests -B 2>&1; then
-            echo "=== 409 conflict, deleting and retrying ==="
-            delete_package "com.oscholar.oscholar-user-api"
-            delete_package "oscholar-user-api"
-            mvn deploy -s ../settings.xml -pl oscholar-user-api -am -DskipTests -B
-          fi
+          mvn deploy -s ../settings.xml -pl oscholar-user-api -am -DskipTests -B
