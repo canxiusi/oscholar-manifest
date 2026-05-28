@@ -26,23 +26,13 @@ spec:
           image: crpi-54xd1yj3irk9pgls.cn-shanghai.personal.cr.aliyuncs.com/oscholar/oscholar-web:placeholder
           imagePullPolicy: Always
           ports:
-            - containerPort: 80
+            - containerPort: 38088
               name: http
-
-          volumeMounts:
-            - name: nginx-config
-              mountPath: /etc/nginx/conf.d/default.conf
-              subPath: default.conf
 
           resources:
             requests:
-              memory: "64Mi"
-              cpu: "50m"
-            limits:
               memory: "128Mi"
-              cpu: "200m"
-
-      volumes:
-        - name: nginx-config
-          configMap:
-            name: oscholar-web-nginx-config
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"
