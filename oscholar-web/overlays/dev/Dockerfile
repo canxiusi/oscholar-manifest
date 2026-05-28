@@ -20,5 +20,6 @@ EXPOSE 38088
 
 ENV PORT=38088
 ENV HOSTNAME="0.0.0.0"
+ENV BACKEND_URL="http://dev-oscholar-gateway-service"
 
 CMD ["node", "server.js"]
