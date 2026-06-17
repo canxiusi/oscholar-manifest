@@ -13,6 +13,16 @@ RUN mkdir -p /root/.m2 && echo '<settings>\
       <username>'${GITHUB_ACTOR}'</username>\
       <password>'${GITHUB_TOKEN}'</password>\
     </server>\
+    <server>\
+      <id>github-user</id>\
+      <username>'${GITHUB_ACTOR}'</username>\
+      <password>'${GITHUB_TOKEN}'</password>\
+    </server>\
+    <server>\
+      <id>github-social</id>\
+      <username>'${GITHUB_ACTOR}'</username>\
+      <password>'${GITHUB_TOKEN}'</password>\
+    </server>\
   </servers>\
   <profiles>\
     <profile>\
@@ -21,6 +31,14 @@ RUN mkdir -p /root/.m2 && echo '<settings>\
         <repository>\
           <id>github</id>\
           <url>https://maven.pkg.github.com/canxiusi/oscholar-common</url>\
+        </repository>\
+        <repository>\
+          <id>github-user</id>\
+          <url>https://maven.pkg.github.com/canxiusi/oscholar-user</url>\
+        </repository>\
+        <repository>\
+          <id>github-social</id>\
+          <url>https://maven.pkg.github.com/canxiusi/oscholar-social</url>\
         </repository>\
       </repositories>\
     </profile>\
