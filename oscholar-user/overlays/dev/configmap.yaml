@@ -4,4 +4,6 @@ metadata:
   name: oscholar-user-config
 data:
   ACTIVE: "dev"
+  USER_SERVICE_K8S_FQDN: "http://dev-oscholar-user-service"
   PAPER_SERVICE_K8S_FQDN: "http://dev-oscholar-paper-service"
+  SOCIAL_SERVICE_K8S_FQDN: "http://dev-oscholar-social-service"
