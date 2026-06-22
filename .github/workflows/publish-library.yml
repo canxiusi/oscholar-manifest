@@ -178,20 +178,20 @@ jobs:
           cd common-code
           mvn deploy -s ../settings.xml -DskipTests -B
 
-      - name: Checkout oscholar-paper
+      - name: Checkout oscholar-user
         uses: actions/checkout@v4
         with:
-          repository: canxiusi/oscholar-paper
+          repository: canxiusi/oscholar-user
           ref: ${{ inputs.branch }}
           token: ${{ secrets.PAT_TOKEN }}
-          path: paper-code
+          path: user-code
 
-      - name: Deploy oscholar-paper-api
+      - name: Deploy oscholar-user-api
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          cd paper-code
-          mvn deploy -s ../settings.xml -pl oscholar-paper-api -am -DskipTests -B
+          cd user-code
+          mvn deploy -s ../settings.xml -pl oscholar-user-api -am -DskipTests -B
 
       - name: Checkout oscholar-social
         uses: actions/checkout@v4
@@ -208,17 +208,17 @@ jobs:
           cd social-code
           mvn deploy -s ../settings.xml -pl oscholar-social-api -am -DskipTests -B
 
-      - name: Checkout oscholar-user
+      - name: Checkout oscholar-paper
         uses: actions/checkout@v4
         with:
-          repository: canxiusi/oscholar-user
+          repository: canxiusi/oscholar-paper
           ref: ${{ inputs.branch }}
           token: ${{ secrets.PAT_TOKEN }}
-          path: user-code
+          path: paper-code
 
-      - name: Deploy oscholar-user-api
+      - name: Deploy oscholar-paper-api
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          cd user-code
-          mvn deploy -s ../settings.xml -pl oscholar-user-api -am -DskipTests -B
+          cd paper-code
+          mvn deploy -s ../settings.xml -pl oscholar-paper-api -am -DskipTests -B
