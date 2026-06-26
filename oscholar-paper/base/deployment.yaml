@@ -30,6 +30,9 @@ spec:
                 name: oscholar-paper-config
             - secretRef:
                 name: oscholar-paper-secret
+          env:
+            - name: TZ
+              value: Asia/Shanghai
           ports:
             - containerPort: 8080
               name: http

@@ -30,6 +30,9 @@ spec:
                 name: oscholar-social-config
             - secretRef:
                 name: oscholar-social-secret
+          env:
+            - name: TZ
+              value: Asia/Shanghai
           ports:
             - containerPort: 8080
               name: http

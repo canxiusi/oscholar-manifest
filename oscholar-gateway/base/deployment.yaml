@@ -34,6 +34,9 @@ spec:
                 name: oscholar-gateway-config
             - secretRef:
                 name: oscholar-gateway-secret
+          env:
+            - name: TZ
+              value: Asia/Shanghai
 
           resources:
             requests:
