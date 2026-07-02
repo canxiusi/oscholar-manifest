@@ -7,7 +7,7 @@ namePrefix: dev-
 images:
 - name: crpi-54xd1yj3irk9pgls.cn-shanghai.personal.cr.aliyuncs.com/oscholar/oscholar-paper:placeholder
   newName: crpi-54xd1yj3irk9pgls.cn-shanghai.personal.cr.aliyuncs.com/oscholar/oscholar-paper
-  newTag: "146"
+  newTag: "148"
 
 resources:
 - ../../base
